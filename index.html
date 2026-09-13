@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaming Hub - اختر لعبتك</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Tahoma', Arial, sans-serif;
+        background: linear-gradient(135deg, #1e1e2f, #2b2b44);
+        color: white;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 20px;
+    }
+    h1 {
+        font-size: 32px;
+        margin-bottom: 8px;
+        text-align: center;
+    }
+    p.subtitle {
+        color: #b3b3cc;
+        margin-top: 0;
+        margin-bottom: 40px;
+        text-align: center;
+    }
+    .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 24px;
+        width: 100%;
+        max-width: 1000px;
+    }
+    .game-card {
+        background: #2f2f4a;
+        border-radius: 14px;
+        padding: 26px 20px;
+        text-align: center;
+        text-decoration: none;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border: 2px solid transparent;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .game-card:hover {
+        transform: translateY(-6px);
+        border-color: #28a745;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+    .game-icon {
+        font-size: 48px;
+    }
+    .game-name {
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .game-desc {
+        font-size: 13px;
+        color: #b3b3cc;
+    }
+    .badge {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .badge.ready { background: #28a745; color: white; }
+    .badge.soon { background: #555577; color: #ccc; }
+    footer {
+        margin-top: 50px;
+        color: #7777aa;
+        font-size: 13px;
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+    <h1>🎮 Gaming Hub</h1>
+    <p class="subtitle">  select your game  </p>
+
+    <div class="games-grid">
+
+        <a href="rps.html" class="game-card">
+            <div class="game-icon">✊✋✌️</div>
+            <div class="game-name">Rock Paper Scissors</div>
+            <div class="game-desc">Play Rock Paper Scissors online with a friend</div>
+            <span class="badge ready">Available Now</span>
+        </a>
+
+        <a href="xo.html" class="game-card">
+            <div class="game-icon">❌⭕</div>
+            <div class="game-name">X and O</div>
+            <div class="game-desc">Classic X and O Game</div>
+            <span class="badge soon">Coming Soon</span>
+        </a>
+
+        <a href="connect4.html" class="game-card">
+            <div class="game-icon">🔴🟡</div>
+            <div class="game-name">Connect 4</div>
+            <div class="game-desc">Connect 4 Game</div>
+            <span class="badge soon">Coming Soon</span>
+        </a>
+
+        <a href="yatzy.html" class="game-card">
+            <div class="game-icon">🎲</div>
+            <div class="game-name">Yatzy Classic</div>
+            <div class="game-desc">Classic Dice Game</div>
+            <span class="badge soon">Coming Soon</span>
+        </a>
+
+    </div>
+
+    <footer>Interactive Gaming Hub for Children — ARM M3 Project</footer>
+
+</body>
+</html>
