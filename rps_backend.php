@@ -58,6 +58,10 @@ if (!file_exists($game_status_path)) {
     file_put_contents($game_status_path, implode(';', $parts) . PHP_EOL, LOCK_EX);
 }
 
+// shared helper to update status/main.txt
+require_once __DIR__ . '/status_helper.php';
+ensure_main_file();
+
 // -------------------- Helpers --------------------
 
 function room_path($roomId) {
@@ -174,6 +178,8 @@ function decide_winner($moveA, $moveB) {
 }
 
 // -------------------- Router --------------------
+    // update master main status
+    update_main_status('rps', $state);
 
 $action = $_REQUEST['action'] ?? '';
 

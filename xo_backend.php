@@ -47,6 +47,9 @@ if (!file_exists($game_status_path)) {
     file_put_contents($game_status_path, implode(';', $parts) . PHP_EOL, LOCK_EX);
 }
 
+require_once __DIR__ . '/status_helper.php';
+ensure_main_file();
+
 // -------------------- Helpers --------------------
 
 function room_path($roomId) {
@@ -218,6 +221,8 @@ function write_status_file($room, $event) {
     ];
 
     append_status_log('xo', $room['room_id'], $state, $event, $fields);
+    // update master main status
+    update_main_status('xo', $state);
 }
 
 // -------------------- Router --------------------

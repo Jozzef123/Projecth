@@ -52,6 +52,9 @@ if (!file_exists($game_status_path)) {
     file_put_contents($game_status_path, implode(';', $parts) . PHP_EOL, LOCK_EX);
 }
 
+require_once __DIR__ . '/status_helper.php';
+ensure_main_file();
+
 function room_path($roomId) {
     global $ROOMS_DIR;
     $safe = preg_replace('/[^A-Za-z0-9]/', '', $roomId);
@@ -225,6 +228,8 @@ function write_status_file($room, $event, $lastActionInfo = []) {
     ];
 
     append_status_log('yatzy', $room['room_id'], $state, $event, $fields);
+    // update master main status
+    update_main_status('yatzy', $state);
 }
 
 // -------------------- Router --------------------
