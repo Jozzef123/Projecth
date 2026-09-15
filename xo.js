@@ -1,48 +1,50 @@
 /**
- * rps.js
- * ------
- * Front-end logic for the 2-player online Rock Paper Scissors game.
- * Talks to rps_backend.php via fetch, and polls periodically to find
- * out the current room state (waiting for opponent / playing / result).
+ * xo.js
+ * -----
+ * Front-end logic for the 2-player online Tic-Tac-Toe game.
+ * Mirrors the RPS room flow: create or join by URL, store player identity in
+ * localStorage, then poll xo_backend.php for the current board state.
  */
 
-const BACKEND_URL = 'rps_backend.php';
+const BACKEND_URL = 'xo_backend.php';
 const POLL_INTERVAL_MS = 1500;
 
-const EMOJI = { rock: '\u270A', paper: '\u270B', scissors: '\u270C\uFE0F' };
-const ROLE_LABEL = { p1: 'Player 1', p2: 'Player 2' };
+const ROLE_SYMBOL = { p1: 'X', p2: 'O' };
+const ROLE_LABEL = { p1: 'Player 1 (X)', p2: 'Player 2 (O)' };
 
-// ------- Page elements -------
-const waitingScreen  = document.getElementById('waitingScreen');
-const waitingText    = document.getElementById('waitingText');
-const shareBox        = document.getElementById('shareBox');
-const shareLinkInput  = document.getElementById('shareLink');
-const copyBtn         = document.getElementById('copyBtn');
+const waitingScreen = document.getElementById('waitingScreen');
+const waitingText = document.getElementById('waitingText');
+const shareBox = document.getElementById('shareBox');
+const shareLinkInput = document.getElementById('shareLink');
+const copyBtn = document.getElementById('copyBtn');
 
-const gameScreen     = document.getElementById('gameScreen');
-const roleTag        = document.getElementById('roleTag');
-const movedNote       = document.getElementById('movedNote');
-const pickPrompt      = document.getElementById('pickPrompt');
-const choiceButtons   = document.querySelectorAll('.choice-btn');
+const gameScreen = document.getElementById('gameScreen');
+const roleTag = document.getElementById('roleTag');
+const turnPrompt = document.getElementById('turnPrompt');
+const turnNote = document.getElementById('turnNote');
+const cellButtons = document.querySelectorAll('.cell-btn[data-index]');
+const xScore = document.getElementById('xScore');
+const oScore = document.getElementById('oScore');
+const drawScore = document.getElementById('drawScore');
 
-const resultScreen   = document.getElementById('resultScreen');
-const myEmojiEl        = document.getElementById('myEmoji');
-const oppEmojiEl        = document.getElementById('oppEmoji');
-const resultMsgEl     = document.getElementById('resultMsg');
-const nextRoundBtn    = document.getElementById('nextRoundBtn');
-const endMatchBtn     = document.getElementById('endMatchBtn');
+const resultScreen = document.getElementById('resultScreen');
+const resultRoleTag = document.getElementById('resultRoleTag');
+const resultMsg = document.getElementById('resultMsg');
+const resultCells = document.querySelectorAll('.cell-btn[data-result-index]');
+const resultXScore = document.getElementById('resultXScore');
+const resultOScore = document.getElementById('resultOScore');
+const resultDrawScore = document.getElementById('resultDrawScore');
+const nextRoundBtn = document.getElementById('nextRoundBtn');
+const endMatchBtn = document.getElementById('endMatchBtn');
 
-const errorScreen    = document.getElementById('errorScreen');
-const errorText       = document.getElementById('errorText');
+const errorScreen = document.getElementById('errorScreen');
+const errorText = document.getElementById('errorText');
 
 let roomId = null;
 let playerId = null;
 let myRole = null;
 let pollTimer = null;
 let lastKnownRound = 1;
-let hasMovedThisRound = false;
-
-// ------- Helpers -------
 
 function showOnly(el) {
     [waitingScreen, gameScreen, resultScreen, errorScreen].forEach(s => s.classList.add('hidden'));
@@ -58,14 +60,14 @@ function showError(message) {
 async function api(action, params = {}) {
     const url = new URL(BACKEND_URL, window.location.href);
     url.searchParams.set('action', action);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error('network_error');
     return res.json();
 }
 
 function storageKey(rid) {
-    return 'rps_player_' + rid;
+    return 'xo_player_' + rid;
 }
 
 function saveLocalPlayer(rid, pid) {
@@ -76,21 +78,15 @@ function getLocalPlayer(rid) {
     try { return localStorage.getItem(storageKey(rid)); } catch (e) { return null; }
 }
 
-// ------- Game initialization -------
-
 async function init() {
     const params = new URLSearchParams(window.location.search);
     const roomParam = params.get('room');
 
     if (!roomParam) {
-        // No room in the URL -> create a brand new room (player 1).
         await createRoom();
     } else {
-        // Room id present in the URL -> join it (as player 1 or 2
-        // depending on the current room state).
         roomId = roomParam;
-        const existingPlayerId = getLocalPlayer(roomId);
-        await joinRoom(roomId, existingPlayerId);
+        await joinRoom(roomId, getLocalPlayer(roomId));
     }
 }
 
@@ -103,16 +99,15 @@ async function createRoom() {
             showError('Something went wrong creating the room. Please try again.');
             return;
         }
+
         roomId = data.room_id;
         playerId = data.player_id;
         myRole = data.role;
         saveLocalPlayer(roomId, playerId);
 
-        // Update the browser URL without reloading the page.
         const newUrl = window.location.pathname + '?room=' + roomId;
         window.history.replaceState({}, '', newUrl);
 
-        // Show the shareable link.
         shareLinkInput.value = window.location.origin + window.location.pathname + '?room=' + roomId;
         shareBox.classList.remove('hidden');
         waitingText.textContent = 'Room is ready!';
@@ -132,6 +127,7 @@ async function joinRoom(rid, existingPlayerId) {
             room: rid,
             player: existingPlayerId || '',
         });
+
         if (!data.ok) {
             if (data.error === 'room_full') {
                 showError('This room is already full (2 players). Create a new room from the main menu instead.');
@@ -142,6 +138,7 @@ async function joinRoom(rid, existingPlayerId) {
             }
             return;
         }
+
         roomId = data.room_id;
         playerId = data.player_id;
         myRole = data.role;
@@ -153,12 +150,10 @@ async function joinRoom(rid, existingPlayerId) {
     }
 }
 
-// ------- Polling -------
-
 function startPolling() {
     stopPolling();
     pollTimer = setInterval(pollStatus, POLL_INTERVAL_MS);
-    pollStatus(); // fire once immediately
+    pollStatus();
 }
 
 function stopPolling() {
@@ -185,22 +180,20 @@ async function pollStatus() {
 function renderState(data) {
     if (data.round !== lastKnownRound) {
         lastKnownRound = data.round;
-        hasMovedThisRound = false;
-        resetChoiceButtons();
     }
 
     if (data.players_count < 2) {
-        // Still waiting for a second player to join.
         showOnly(waitingScreen);
         return;
     }
 
-    if (data.both_moved && data.result) {
-        showResult(data.result);
+    updateScores(data.score);
+
+    if (data.status === 'result') {
+        showResult(data);
         return;
     }
 
-    // If the backend reports the room is DEAD, show match-ended screen
     if (data.state === 'DEAD') {
         stopPolling();
         showOnly(errorScreen);
@@ -208,73 +201,73 @@ function renderState(data) {
         return;
     }
 
-    // Gameplay screen.
     showOnly(gameScreen);
     roleTag.textContent = 'You: ' + (ROLE_LABEL[data.my_role] || '');
+    renderBoard(cellButtons, data.board, data.current_turn === data.my_role);
 
-    if (data.i_have_moved) {
-        hasMovedThisRound = true;
-        pickPrompt.classList.add('hidden');
-        movedNote.classList.remove('hidden');
-        disableChoiceButtons(true);
+    const mySymbol = ROLE_SYMBOL[data.my_role] || '';
+    if (data.current_turn === data.my_role) {
+        turnPrompt.textContent = 'Your turn. Place ' + mySymbol + '.';
+        turnNote.textContent = 'Choose any empty square.';
     } else {
-        pickPrompt.classList.remove('hidden');
-        movedNote.classList.add('hidden');
-        disableChoiceButtons(false);
+        turnPrompt.textContent = 'Opponent turn. Waiting for ' + data.current_symbol + '...';
+        turnNote.textContent = 'The board updates automatically.';
     }
-}          
+}
 
+function updateScores(score) {
+    const labels = [
+        [xScore, resultXScore, 'X wins: ' + score.x],
+        [oScore, resultOScore, 'O wins: ' + score.o],
+        [drawScore, resultDrawScore, 'Draws: ' + score.draws],
+    ];
+    labels.forEach(([gameEl, resultEl, text]) => {
+        gameEl.textContent = text;
+        resultEl.textContent = text;
+    });
+}
 
-function showResult(result) {
+function renderBoard(cells, board, allowMove) {
+    cells.forEach((cell, index) => {
+        const value = board[index] || '';
+        cell.textContent = value;
+        cell.classList.toggle('x', value === 'X');
+        cell.classList.toggle('o', value === 'O');
+        cell.disabled = !allowMove || value !== '';
+    });
+}
+
+function showResult(data) {
     showOnly(resultScreen);
+    resultRoleTag.textContent = 'You: ' + (ROLE_LABEL[data.my_role] || '');
+    renderBoard(resultCells, data.board, false);
 
-    const myMove  = myRole === 'p1' ? result.p1_move : result.p2_move;
-    const oppMove = myRole === 'p1' ? result.p2_move : result.p1_move;
-
-    myEmojiEl.textContent = EMOJI[myMove] || '?';
-    oppEmojiEl.textContent = EMOJI[oppMove] || '?';
-
-    resultMsgEl.classList.remove('win', 'lose', 'draw');
-    if (result.winner === 'draw') {
-        resultMsgEl.textContent = "It's a draw! \uD83E\uDD1D";
-        resultMsgEl.classList.add('draw');
-    } else if (result.winner === myRole) {
-        resultMsgEl.textContent = 'You win! \uD83C\uDF89';
-        resultMsgEl.classList.add('win');
+    resultMsg.classList.remove('win', 'lose', 'draw');
+    if (data.winner === 'draw') {
+        resultMsg.textContent = "It's a draw!";
+        resultMsg.classList.add('draw');
+    } else if (data.winner === ROLE_SYMBOL[data.my_role]) {
+        resultMsg.textContent = 'You win!';
+        resultMsg.classList.add('win');
     } else {
-        resultMsgEl.textContent = 'You lost this round \uD83D\uDE05';
-        resultMsgEl.classList.add('lose');
+        resultMsg.textContent = 'You lost this round.';
+        resultMsg.classList.add('lose');
     }
 }
 
-// ------- Choice selection -------
-
-function resetChoiceButtons() {
-    choiceButtons.forEach(btn => btn.classList.remove('selected'));
-    disableChoiceButtons(false);
-    pickPrompt.classList.remove('hidden');
-    movedNote.classList.add('hidden');
-}
-
-function disableChoiceButtons(disabled) {
-    choiceButtons.forEach(btn => btn.disabled = disabled);
-}
-
-choiceButtons.forEach(btn => {
+cellButtons.forEach(btn => {
     btn.addEventListener('click', async () => {
-        if (hasMovedThisRound) return;
-        const choice = btn.dataset.choice;
-        disableChoiceButtons(true);
-        btn.classList.add('selected');
+        const index = btn.dataset.index;
+        btn.disabled = true;
         try {
-            await api('move', { room: roomId, player: playerId, choice });
-            hasMovedThisRound = true;
-            pickPrompt.classList.add('hidden');
-            movedNote.classList.remove('hidden');
+            const data = await api('move', { room: roomId, player: playerId, cell: index });
+            if (!data.ok) {
+                pollStatus();
+                return;
+            }
             pollStatus();
         } catch (e) {
-            disableChoiceButtons(false);
-            btn.classList.remove('selected');
+            btn.disabled = false;
         }
     });
 });
@@ -282,8 +275,6 @@ choiceButtons.forEach(btn => {
 nextRoundBtn.addEventListener('click', async () => {
     try {
         await api('next_round', { room: roomId });
-        hasMovedThisRound = false;
-        resetChoiceButtons();
         showOnly(gameScreen);
         pollStatus();
     } catch (e) {
@@ -293,12 +284,9 @@ nextRoundBtn.addEventListener('click', async () => {
 
 endMatchBtn.addEventListener('click', async () => {
     try {
-        const res = await api('end_game', { room: roomId, player: playerId });
-        // Poll once to get the final state and snapshot
+        await api('end_game', { room: roomId });
         await pollStatus();
-    } catch (e) {
-        // ignore; the poll will pick up state change
-    }
+    } catch (e) {}
 });
 
 copyBtn.addEventListener('click', () => {
@@ -314,5 +302,4 @@ copyBtn.addEventListener('click', () => {
     }
 });
 
-// ------- Kick things off -------
 init();

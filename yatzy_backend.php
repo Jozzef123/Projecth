@@ -3,11 +3,53 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST');
 
-$ROOMS_DIR   = __DIR__ . '/rooms';
-$STATUS_FILE = __DIR__ . '/status.txt';
+/**
+ * yatzy_backend.php
+ * -----------------
+ * Backend for a 2-player Yatzy game.
+ *
+ * STATUS LOGGING SCHEMA (lines are semicolon-separated key=value pairs):
+ * Every status line MUST follow this exact field order:
+ *
+ * state=ALIVE|DEAD;game=GAME_NAME;room=ROOM_ID;event=EVENT_NAME;...;time=YYYY-MM-DD HH:MM:SS
+ *
+ * Game-specific fields for Yatzy (in this exact order):
+ * status, turn, rolls_left, dice, held_count, held_indices, held_values,
+ * p1_score, p2_score, last_player, last_action, category_chosen, points_scored
+ */
+
+$ROOMS_DIR = __DIR__ . '/rooms';
 
 if (!is_dir($ROOMS_DIR)) {
     mkdir($ROOMS_DIR, 0777, true);
+}
+
+// Ensure status file exists for this game (single fixed file per game)
+$STATUS_DIR = __DIR__ . '/status';
+if (!is_dir($STATUS_DIR)) mkdir($STATUS_DIR, 0777, true);
+$game_status_path = $STATUS_DIR . '/yatzy.txt';
+if (!file_exists($game_status_path)) {
+    $idle = ['state' => 'DEAD', 'game' => 'yatzy', 'room' => '', 'event' => 'idle', 'status' => 'waiting', 'turn' => '', 'rolls_left' => 3, 'dice' => '', 'held_count' => 0, 'held_indices' => '', 'held_values' => '', 'p1_score' => 0, 'p2_score' => 0, 'last_player' => '', 'last_action' => '', 'category_chosen' => '', 'points_scored' => 0];
+    $parts = [];
+    $parts[] = 'state=' . $idle['state'];
+    $parts[] = 'game=' . $idle['game'];
+    $parts[] = 'room=' . $idle['room'];
+    $parts[] = 'event=' . $idle['event'];
+    $parts[] = 'status=' . $idle['status'];
+    $parts[] = 'turn=' . $idle['turn'];
+    $parts[] = 'rolls_left=' . $idle['rolls_left'];
+    $parts[] = 'dice=' . $idle['dice'];
+    $parts[] = 'held_count=' . $idle['held_count'];
+    $parts[] = 'held_indices=' . $idle['held_indices'];
+    $parts[] = 'held_values=' . $idle['held_values'];
+    $parts[] = 'p1_score=' . $idle['p1_score'];
+    $parts[] = 'p2_score=' . $idle['p2_score'];
+    $parts[] = 'last_player=' . $idle['last_player'];
+    $parts[] = 'last_action=' . $idle['last_action'];
+    $parts[] = 'category_chosen=' . $idle['category_chosen'];
+    $parts[] = 'points_scored=' . $idle['points_scored'];
+    $parts[] = 'time=' . date('Y-m-d H:i:s', time());
+    file_put_contents($game_status_path, implode(';', $parts) . PHP_EOL, LOCK_EX);
 }
 
 function room_path($roomId) {
@@ -107,9 +149,41 @@ function calculate_score($category, $dice) {
     }
 }
 
-function write_status_file($room, $lastActionInfo = []) {
-    global $STATUS_FILE;
-    
+function append_status_log($game, $roomId, $state, $event, $fields) {
+    // Single fixed file per game: status/{game}.txt
+    $dir = __DIR__ . '/status';
+    if (!is_dir($dir)) mkdir($dir, 0777, true);
+    $path = $dir . '/' . $game . '.txt';
+
+    $parts = [];
+    $parts[] = 'state=' . str_replace(["\r", "\n", ";"], '', strtoupper($state));
+    $parts[] = 'game=' . str_replace(["\r", "\n", ";"], '', $game);
+    $parts[] = 'room=' . preg_replace('/[^A-Za-z0-9]/', '', $roomId);
+    $parts[] = 'event=' . str_replace(["\r", "\n", ";"], '', $event);
+
+    foreach ($fields as $key => $value) {
+        $clean = str_replace(["\r", "\n", ";"], '', (string)$value);
+        $parts[] = $key . '=' . $clean;
+    }
+
+    $parts[] = 'time=' . date('Y-m-d H:i:s', time());
+    $line = implode(';', $parts) . PHP_EOL;
+
+    $fp = fopen($path, 'c+');
+    if ($fp) {
+        flock($fp, LOCK_EX);
+        ftruncate($fp, 0);
+        rewind($fp);
+        fwrite($fp, rtrim($line, PHP_EOL));
+        fflush($fp);
+        flock($fp, LOCK_UN);
+        fclose($fp);
+    }
+
+    return true;
+}
+
+function write_status_file($room, $event, $lastActionInfo = []) {
     $turn = $room['current_turn'] ?? 'p1';
     $rollsLeft = $room['rolls_left'] ?? 3;
     $dice = $room['dice'] ?? [0,0,0,0,0];
@@ -132,15 +206,25 @@ function write_status_file($room, $lastActionInfo = []) {
     $cat = $lastActionInfo['category'] ?? 'none';
     $pts = $lastActionInfo['points'] ?? 0;
 
-    $lines = [
-        "game=yatzy;room={$room['room_id']};status={$room['status']};turn={$turn};rolls_left={$rollsLeft}",
-        "dice={$diceStr}",
-        "held_count=" . count($heldIndices) . ";held_indices=" . implode(',', $heldIndices) . ";held_values=" . implode(',', $heldValues),
-        "p1_score={$p1Score};p2_score={$p2Score}",
-        "last_player={$playerWhoActed};last_action={$action};category_chosen={$cat};points_scored={$pts}"
+    $state = ($room['status'] ?? '') === 'finished' ? 'DEAD' : (!empty($room['finished']) && $room['finished'] ? 'DEAD' : 'ALIVE');
+
+    $fields = [
+        'status' => $room['status'],
+        'turn' => $turn,
+        'rolls_left' => $rollsLeft,
+        'dice' => $diceStr,
+        'held_count' => count($heldIndices),
+        'held_indices' => implode(',', $heldIndices),
+        'held_values' => implode(',', $heldValues),
+        'p1_score' => $p1Score,
+        'p2_score' => $p2Score,
+        'last_player' => $playerWhoActed,
+        'last_action' => $action,
+        'category_chosen' => $cat,
+        'points_scored' => $pts,
     ];
 
-    file_put_contents($STATUS_FILE, implode(PHP_EOL, $lines) . PHP_EOL, LOCK_EX);
+    append_status_log('yatzy', $room['room_id'], $state, $event, $fields);
 }
 
 // -------------------- Router --------------------
@@ -169,7 +253,7 @@ switch ($action) {
             'created_at'   => time(),
         ];
         save_room($roomId, $room);
-        write_status_file($room, ['action' => 'room_created']);
+        write_status_file($room, 'create_room', ['action' => 'room_created']);
 
         respond(['ok' => true, 'room_id' => $roomId, 'player_id' => $playerId, 'role' => 'p1']);
     }
@@ -190,7 +274,7 @@ switch ($action) {
         $room['players'][$playerId] = 'p2';
         $room['status'] = 'playing';
         save_room($roomId, $room);
-        write_status_file($room, ['action' => 'player_joined']);
+        write_status_file($room, 'player_joined', ['action' => 'player_joined']);
 
         respond(['ok' => true, 'room_id' => $roomId, 'player_id' => $playerId, 'role' => 'p2', 'status' => 'playing']);
     }
@@ -213,7 +297,7 @@ switch ($action) {
         $room['rolls_left'] -= 1;
         save_room($roomId, $room);
 
-        write_status_file($room, [
+        write_status_file($room, 'dice_roll', [
             'player' => $myRole,
             'action' => 'roll'
         ]);
@@ -236,7 +320,7 @@ switch ($action) {
             $room['held'][$dieIndex] = !$room['held'][$dieIndex];
             save_room($roomId, $room);
 
-            write_status_file($room, [
+            write_status_file($room, 'toggle_hold', [
                 'player' => $myRole,
                 'action' => 'hold'
             ]);
@@ -287,12 +371,20 @@ switch ($action) {
 
         save_room($roomId, $room);
 
-        write_status_file($room, [
+        write_status_file($room, 'score_category', [
             'player'   => $myRole,
             'action'   => 'score_category',
             'category' => $category,
             'points'   => $pts
         ]);
+        if ($room['status'] === 'finished') {
+            write_status_file($room, 'game_finished', [
+                'player'   => $myRole,
+                'action'   => 'game_finished',
+                'category' => $category,
+                'points'   => $pts
+            ]);
+        }
 
         respond(['ok' => true, 'room' => $room]);
     }

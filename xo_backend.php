@@ -1,34 +1,21 @@
 <?php
 /**
- * rps_backend.php
- * -----------------
- * Simple backend for a 2-player online Rock Paper Scissors game.
- * Uses plain JSON files instead of a database, and appends every
- * game-state change to status/rps/{room_id}.txt.
+ * xo_backend.php
+ * --------------
+ * Simple backend for a 2-player online Tic-Tac-Toe game.
+ * Uses one JSON file per room and appends every game-state change to
+ * status/xo/{room_id}.txt.
  *
  * STATUS LOGGING SCHEMA (lines are semicolon-separated key=value pairs):
  * Every status line MUST follow this exact field order:
  *
  * state=ALIVE|DEAD;game=GAME_NAME;room=ROOM_ID;event=EVENT_NAME;...;time=YYYY-MM-DD HH:MM:SS
  *
- * - `state`: ALIVE when the room/match exists and may continue, DEAD when the
- *            match has ended and will not continue.
- * - `game`:  short game identifier (e.g. rps, xo, yatzy)
- * - `room`:  room id string
- * - `event`: semantic event name (create_room, player_joined, player_choice,
- *            round_result, next_round, match_ended, game_finished, etc.)
- *
- * Each game may append game-specific fields after the required first four
- * fields. Those fields must always appear in the same order for the game and
- * must never be omitted (use an empty value when appropriate). The final
- * field in every line MUST be `time=YYYY-MM-DD HH:MM:SS`.
- *
- * This stable, fixed-order format is designed to be parsed by an external
- * device (ARM M3) that splits on `;` then `=` and reads fields by index.
+ * See top of rps_backend.php for full schema details. Game-specific fields
+ * for XO (in this exact order): status, board, turn, winner, round
  */
 
 header('Content-Type: application/json; charset=utf-8');
-
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST');
 
@@ -41,17 +28,19 @@ if (!is_dir($ROOMS_DIR)) {
 // Ensure status file exists for this game (single fixed file per game)
 $STATUS_DIR = __DIR__ . '/status';
 if (!is_dir($STATUS_DIR)) mkdir($STATUS_DIR, 0777, true);
-$game_status_path = $STATUS_DIR . '/rps.txt';
+$game_status_path = $STATUS_DIR . '/xo.txt';
 if (!file_exists($game_status_path)) {
-    $idle = ['state' => 'DEAD', 'game' => 'rps', 'room' => '', 'event' => 'idle', 'status' => 'waiting', 'p1_choice' => '', 'p2_choice' => '', 'winner' => '', 'round' => 0];
+    $idle = ['state' => 'DEAD', 'game' => 'xo', 'room' => '', 'event' => 'idle', 'last_player' => '', 'last_move_row' => '', 'last_move_col' => '', 'board' => '---------', 'turn' => '', 'winner' => '', 'round' => 0];
     $parts = [];
     $parts[] = 'state=' . $idle['state'];
     $parts[] = 'game=' . $idle['game'];
     $parts[] = 'room=' . $idle['room'];
     $parts[] = 'event=' . $idle['event'];
-    $parts[] = 'status=' . $idle['status'];
-    $parts[] = 'p1_choice=' . $idle['p1_choice'];
-    $parts[] = 'p2_choice=' . $idle['p2_choice'];
+    $parts[] = 'last_player=' . $idle['last_player'];
+    $parts[] = 'last_move_row=' . $idle['last_move_row'];
+    $parts[] = 'last_move_col=' . $idle['last_move_col'];
+    $parts[] = 'board=' . $idle['board'];
+    $parts[] = 'turn=' . $idle['turn'];
     $parts[] = 'winner=' . $idle['winner'];
     $parts[] = 'round=' . $idle['round'];
     $parts[] = 'time=' . date('Y-m-d H:i:s', time());
@@ -105,6 +94,79 @@ function save_room($roomId, $data) {
     return true;
 }
 
+function respond($arr) {
+    echo json_encode($arr, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function empty_board() {
+    return ['', '', '', '', '', '', '', '', ''];
+}
+
+function role_symbol($role) {
+    return $role === 'p1' ? 'X' : 'O';
+}
+
+function turn_role_from_symbol($symbol) {
+    if ($symbol === 'X') return 'p1';
+    if ($symbol === 'O') return 'p2';
+    return '';
+}
+
+// Board serialization is kept compact for the append-only room log: X, O, or - per cell.
+function serialize_board($board) {
+    $out = '';
+    for ($i = 0; $i < 9; $i++) {
+        $cell = $board[$i] ?? '';
+        $out .= ($cell === 'X' || $cell === 'O') ? $cell : '-';
+    }
+    return $out;
+}
+
+// Turn-based win detection differs from RPS: every move can end the round.
+function detect_winner($board) {
+    $lines = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6],
+    ];
+
+    foreach ($lines as $line) {
+        [$a, $b, $c] = $line;
+        if ($board[$a] !== '' && $board[$a] === $board[$b] && $board[$a] === $board[$c]) {
+            return $board[$a];
+        }
+    }
+
+    foreach ($board as $cell) {
+        if ($cell === '') return '';
+    }
+
+    return 'draw';
+}
+
+function response_state($room, $playerId) {
+    $myRole = $room['players'][$playerId]['role'] ?? null;
+    $winner = $room['winner'] ?? '';
+    $currentSymbol = $room['current_turn'] ?? 'X';
+    $state = (!empty($room['finished']) && $room['finished']) ? 'DEAD' : 'ALIVE';
+
+    return [
+        'ok'             => true,
+        'room_id'        => $room['room_id'],
+        'status'         => $room['status'],
+        'state'          => $state,
+        'players_count'  => count($room['players']),
+        'round'          => $room['round'],
+        'board'          => $room['board'],
+        'current_turn'   => turn_role_from_symbol($currentSymbol),
+        'current_symbol' => $room['status'] === 'playing' ? $currentSymbol : '',
+        'winner'         => $winner,
+        'score'          => $room['score'],
+        'my_role'        => $myRole,
+    ];
+}
+
 function append_status_log($game, $roomId, $state, $event, $fields) {
     // Single fixed file per game: status/{game}.txt
     $dir = __DIR__ . '/status';
@@ -139,38 +201,23 @@ function append_status_log($game, $roomId, $state, $event, $fields) {
 }
 
 function write_status_file($room, $event) {
+    $status = $room['status'] ?? 'waiting';
+    $board = serialize_board($room['board'] ?? empty_board());
+    $turn = ($status === 'playing') ? ($room['current_turn'] ?? 'X') : '';
+    $winner = $room['winner'] ?? '';
     $round = $room['round'] ?? 1;
-    $p1 = $room['moves'][$round]['p1'] ?? '';
-    $p2 = $room['moves'][$round]['p2'] ?? '';
-    $winner = ($p1 !== '' && $p2 !== '') ? decide_winner($p1, $p2) : '';
 
     $state = (!empty($room['finished']) && $room['finished']) ? 'DEAD' : 'ALIVE';
 
-    // Game-specific fields MUST be in the same order every time for ARM parsing
     $fields = [
-        'status' => $room['status'] ?? 'waiting',
-        'p1_choice' => $p1,
-        'p2_choice' => $p2,
+        'status' => $status,
+        'board' => $board,
+        'turn' => $turn,
         'winner' => $winner,
         'round' => $round,
     ];
 
-    append_status_log('rps', $room['room_id'], $state, $event, $fields);
-}
-
-function respond($arr) {
-    echo json_encode($arr, JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-function decide_winner($moveA, $moveB) {
-    if ($moveA === $moveB) return 'draw';
-    $beats = [
-        'rock'     => 'scissors',
-        'scissors' => 'paper',
-        'paper'    => 'rock',
-    ];
-    return ($beats[$moveA] === $moveB) ? 'p1' : 'p2';
+    append_status_log('xo', $room['room_id'], $state, $event, $fields);
 }
 
 // -------------------- Router --------------------
@@ -188,14 +235,21 @@ switch ($action) {
         $playerId = generate_player_id();
 
         $room = [
-            'room_id'    => $roomId,
-            'status'     => 'waiting',
-            'round'      => 1,
-            'players'    => [
+            'room_id'      => $roomId,
+            'status'       => 'waiting',
+            'round'        => 1,
+            'players'      => [
                 $playerId => ['role' => 'p1'],
             ],
-            'moves'      => [],
-            'created_at' => time(),
+            'board'        => empty_board(),
+            'current_turn' => 'X',
+            'winner'       => '',
+            'score'        => [
+                'x'     => 0,
+                'o'     => 0,
+                'draws' => 0,
+            ],
+            'created_at'   => time(),
         ];
         save_room($roomId, $room);
         write_status_file($room, 'create_room');
@@ -250,55 +304,20 @@ switch ($action) {
     // ============ STATUS (polling) ============
     case 'status': {
         $roomId = $_REQUEST['room'] ?? '';
+        $playerId = $_REQUEST['player'] ?? '';
         $room = load_room($roomId);
         if (!$room) {
             respond(['ok' => false, 'error' => 'room_not_found']);
         }
 
-        $playerId = $_REQUEST['player'] ?? '';
-        $round = $room['round'];
-        $roundMoves = $room['moves'][$round] ?? [];
-
-        $myRole = $room['players'][$playerId]['role'] ?? null;
-        $iHaveMoved = $myRole && isset($roundMoves[$myRole]);
-
-        $bothMoved = isset($roundMoves['p1']) && isset($roundMoves['p2']);
-
-        $result = null;
-        if ($bothMoved) {
-            $winner = decide_winner($roundMoves['p1'], $roundMoves['p2']);
-            $result = [
-                'p1_move' => $roundMoves['p1'],
-                'p2_move' => $roundMoves['p2'],
-                'winner'  => $winner,
-            ];
-        }
-
-        $state = (!empty($room['finished']) && $room['finished']) ? 'DEAD' : 'ALIVE';
-
-        respond([
-            'ok'            => true,
-            'room_id'       => $roomId,
-            'status'        => $room['status'],
-            'state'         => $state,
-            'players_count' => count($room['players']),
-            'round'         => $round,
-            'my_role'       => $myRole,
-            'i_have_moved'  => $iHaveMoved,
-            'both_moved'    => $bothMoved,
-            'result'        => $result,
-        ]);
+        respond(response_state($room, $playerId));
     }
 
     // ============ MOVE ============
     case 'move': {
         $roomId = $_REQUEST['room'] ?? '';
         $playerId = $_REQUEST['player'] ?? '';
-        $choice = $_REQUEST['choice'] ?? '';
-
-        if (!in_array($choice, ['rock', 'paper', 'scissors'], true)) {
-            respond(['ok' => false, 'error' => 'invalid_choice']);
-        }
+        $cell = (int)($_REQUEST['cell'] ?? -1);
 
         $room = load_room($roomId);
         if (!$room) {
@@ -307,38 +326,52 @@ switch ($action) {
         if (count($room['players']) < 2) {
             respond(['ok' => false, 'error' => 'waiting_for_opponent']);
         }
+        if ($room['status'] !== 'playing') {
+            respond(['ok' => false, 'error' => 'game_already_ended']);
+        }
+
         $myRole = $room['players'][$playerId]['role'] ?? null;
         if (!$myRole) {
             respond(['ok' => false, 'error' => 'not_a_member']);
         }
 
-        $round = $room['round'];
-        if (!isset($room['moves'][$round])) {
-            $room['moves'][$round] = [];
+        $mySymbol = role_symbol($myRole);
+        if ($room['current_turn'] !== $mySymbol) {
+            respond(['ok' => false, 'error' => 'not_your_turn']);
         }
-        $room['moves'][$round][$myRole] = $choice;
+        if ($cell < 0 || $cell > 8) {
+            respond(['ok' => false, 'error' => 'invalid_cell']);
+        }
+        if (($room['board'][$cell] ?? '') !== '') {
+            respond(['ok' => false, 'error' => 'cell_already_filled']);
+        }
 
-        $p1Choice = $room['moves'][$round]['p1'] ?? '';
-        $p2Choice = $room['moves'][$round]['p2'] ?? '';
+        $room['board'][$cell] = $mySymbol;
+        $winner = detect_winner($room['board']);
 
-        $bothMoved = ($p1Choice !== '') && ($p2Choice !== '');
-        $winner = '';
-        if ($bothMoved) {
-            $winner = decide_winner($p1Choice, $p2Choice);
+        if ($winner !== '') {
             $room['status'] = 'result';
+            $room['winner'] = $winner;
+            $room['current_turn'] = '';
+
+            if ($winner === 'X') {
+                $room['score']['x'] += 1;
+            } elseif ($winner === 'O') {
+                $room['score']['o'] += 1;
+            } else {
+                $room['score']['draws'] += 1;
+            }
+        } else {
+            $room['current_turn'] = $mySymbol === 'X' ? 'O' : 'X';
         }
 
         save_room($roomId, $room);
-        write_status_file($room, 'player_choice');
-        if ($bothMoved) {
-            write_status_file($room, 'round_result');
+        write_status_file($room, 'move');
+        if ($winner !== '') {
+            write_status_file($room, 'game_result');
         }
 
-        respond([
-            'ok'         => true,
-            'both_moved' => $bothMoved,
-            'winner'     => $winner,
-        ]);
+        respond(response_state($room, $playerId));
     }
 
     // ============ NEXT ROUND ============
@@ -349,9 +382,14 @@ switch ($action) {
             respond(['ok' => false, 'error' => 'room_not_found']);
         }
         $room['round'] += 1;
-        $room['status'] = 'playing';
+        $room['status'] = count($room['players']) >= 2 ? 'playing' : 'waiting';
+        // clear finished flag when starting a new round
+        if (!empty($room['finished'])) unset($room['finished']);
+        $room['board'] = empty_board();
+        $room['current_turn'] = 'X';
+        $room['winner'] = '';
         save_room($roomId, $room);
-        write_status_file($room, 'next_round');
+        write_status_file($room, 'play_again');
 
         respond(['ok' => true, 'round' => $room['round']]);
     }
@@ -373,5 +411,3 @@ switch ($action) {
     default:
         respond(['ok' => false, 'error' => 'unknown_action']);
 }
-
-

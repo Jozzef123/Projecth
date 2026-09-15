@@ -1,1 +1,0 @@
-game=none;room=;status=idle;winner=;round=0;time=

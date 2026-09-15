@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connect 4 - Coming Soon</title>
+<title>Connect 4 - Available now</title>
 <style>
     body {
         font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
@@ -35,9 +35,25 @@
 </style>
 </head>
 <body>
-    <div class="icon">&#128308;&#128993;</div>
-    <h1>Connect 4</h1>
-    <p>This game is still under development. Stay tuned! &#128679;</p>
     <a class="back" href="index.html">&#8592; Back to main menu</a>
+    <h1>Connect 4</h1>
+    <p id="statusText">Room status: not connected</p>
+
+    <div style="display:flex;gap:8px;align-items:center;">
+        <button id="createBtn" class="back">Create Room</button>
+        <input id="roomInput" placeholder="Room ID" style="padding:8px;border-radius:6px;border:1px solid #444;background:#2b2b44;color:#fff;">
+        <button id="joinBtn" class="back">Join Room</button>
+    </div>
+
+    <div id="boardContainer" style="margin-top:16px;">
+        <div id="game-board" style="width:420px;display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:12px;background:#2f2f4a;border-radius:8px;"></div>
+    </div>
+
+    <div style="margin-top:12px;">
+        <button id="nextRound" class="back" style="background:#28a745;">Play again</button>
+        <button id="endGame" class="back" style="background:#dc3545;">End match</button>
+    </div>
+
+    <script src="connect4.js"></script>
 </body>
 </html>
