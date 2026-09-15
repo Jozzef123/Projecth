@@ -35,11 +35,9 @@ function update_main_status($game, $state) {
     // If the caller reports ALIVE for its game, that becomes the spotlight immediately.
     if (strtoupper($state) === 'ALIVE') {
         $line = 'state=ALIVE;game=' . $game . ';time=' . date('Y-m-d H:i:s', time());
-        $fp = fopen($mainPath, 'c+');
+        $fp = fopen($mainPath, 'w');
         if ($fp) {
             flock($fp, LOCK_EX);
-            ftruncate($fp, 0);
-            rewind($fp);
             fwrite($fp, $line . PHP_EOL);
             fflush($fp);
             flock($fp, LOCK_UN);
@@ -54,6 +52,8 @@ function update_main_status($game, $state) {
     $latestTime = 0;
 
     foreach ($games as $g) {
+        // skip the caller's own per-game file when checking others
+        if ($g === $game) continue;
         $path = $dir . '/' . $g . '.txt';
         if (!file_exists($path)) continue;
         $contents = file_get_contents($path);

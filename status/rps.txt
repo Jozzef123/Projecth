@@ -1,1 +1,1 @@
-state=DEAD;game=rps;room=;event=idle;status=waiting;p1_choice=;p2_choice=;winner=;round=0;time=2026-09-15 00:00:00
+state=DEAD;game=rps;room=ABC123;event=match_ended;status=ended;p1_choice=;p2_choice=;winner=;round=1;time=2026-09-15 12:15:00
