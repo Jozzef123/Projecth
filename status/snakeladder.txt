@@ -1,1 +1,0 @@
-state=DEAD;game=snakeladder;room=;event=idle;status=waiting;p1_pos=0;p2_pos=0;turn=;last_roll=;winner=;round=0;time=2026-09-15 00:00:00
