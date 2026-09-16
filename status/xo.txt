@@ -1,0 +1,1 @@
+state=DEAD;game=xo;room=;event=idle;last_player=;last_move_row=;last_move_col=;board=---------;turn=;winner=;round=0;time=2026-09-15 00:00:00

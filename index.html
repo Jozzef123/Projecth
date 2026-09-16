@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaming Hub</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+            background: linear-gradient(135deg, #1e1e2f, #2b2b44);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 15px;
+            text-align: center;
+        }
+        h1 { margin: 0 0 8px; }
+        .subtitle { color: #b3b3cc; margin: 0 0 30px; }
+        .games {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+        .game-card {
+            display: block;
+            padding: 24px 18px;
+            background: #2f2f4a;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.15s, background 0.15s;
+        }
+        .game-icon {
+            display: grid;
+            place-items: center;
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 14px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #28a745, #0d6efd);
+            font-size: 34px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+        }
+        .game-card:hover {
+            transform: translateY(-3px);
+            background: #3b3b5c;
+        }
+        .game-card h2 { margin: 0 0 8px; font-size: 20px; }
+        .game-card p { color: #b3b3cc; margin: 0; }
+
+        /* Admin / Ops section: visually separate from the game grid, amber accent */
+        .ops {
+            margin: 0 auto;
+            max-width: 760px;
+            padding-top: 28px;
+            border-top: 1px solid #444466;
+        }
+        .ops-card {
+            display: block;
+            max-width: 260px;
+            margin: 18px auto 0;
+            padding: 20px 18px;
+            background: #2f2f4a;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            border: 1px solid #6b5210;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.15s, background 0.15s;
+        }
+        .ops-icon {
+            display: grid;
+            place-items: center;
+            width: 52px;
+            height: 52px;
+            margin: 0 auto 12px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #f0a500, #c76d00);
+            font-size: 28px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+        }
+        .ops-card:hover {
+            transform: translateY(-3px);
+            background: #3b3b5c;
+        }
+        .ops-card h2 { margin: 0 0 6px; font-size: 17px; }
+        .ops-card p { color: #b3b3cc; margin: 0; font-size: 13px; }
+    </style>
+</head>
+
+<body>
+    <h1>Gaming Hub</h1>
+    <p class="subtitle">Choose a game to start</p>
+    <p class="subtitle" id="hubGameStatus" title="status/main.txt">Checking status...</p>
+
+    <main class="games">
+        <a class="game-card" href="connect4.html">
+            <div class="game-icon" aria-hidden="true">🔴</div>
+            <h2>Connect 4</h2>
+            <p>Connect four pieces in a row</p>
+        </a>
+        <a class="game-card" href="rps.html">
+            <div class="game-icon" aria-hidden="true">✊</div>
+            <h2>Rock Paper Scissors</h2>
+            <p>Challenge another player</p>
+        </a>
+        <a class="game-card" href="xo.html">
+            <div class="game-icon" aria-hidden="true">✖○</div>
+            <h2>X and O</h2>
+            <p>Classic three-by-three match</p>
+        </a>
+        <a class="game-card" href="mathquiz.html">
+            <div class="game-icon" aria-hidden="true">➗</div>
+            <h2>Math Quiz</h2>
+            <p>Test your calculation skills</p>
+        </a>
+        <a class="game-card" href="snakeladder.html">
+            <div class="game-icon" aria-hidden="true">🎲</div>
+            <h2>Snake and Ladder</h2>
+            <p>Roll the dice and race to the finish</p>
+        </a>
+        <a class="game-card" href="yatzy.html">
+            <div class="game-icon" aria-hidden="true">⚄</div>
+            <h2>Yatzy</h2>
+            <p>Roll, score, and compete</p>
+        </a>
+        <a class="game-card" href="memory.html">
+            <div class="game-icon" aria-hidden="true">🃏</div>
+            <h2>Memory</h2>
+            <p>Flip cards and match the pairs</p>
+        </a>
+    </main>
+
+    <!-- Admin / Ops: separate from the games (amber accent), links to the OTA console -->
+    <section class="ops">
+        <a class="ops-card" href="ota.html">
+            <div class="ops-icon" aria-hidden="true">&#128736;&#65039;</div>
+            <h2>Admin / Ops</h2>
+            <p>Firmware OTA publishing</p>
+        </a>
+    </section>
+
+    <script src="hub_status.js"></script>
+    <script src="parent_mode.js"></script>
+</body>
+
+</html>

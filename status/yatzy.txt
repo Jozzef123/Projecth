@@ -1,0 +1,1 @@
+state=DEAD;game=yatzy;room=;event=idle;status=waiting;turn=;rolls_left=3;dice=;held_count=0;held_indices=;held_values=;p1_score=0;p2_score=0;last_player=;last_action=;category_chosen=;points_scored=0;time=2026-09-15 00:00:00

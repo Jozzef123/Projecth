@@ -1,0 +1,23 @@
+# If Apache returns 500, delete this file via FTP.
+# ------------------------------------------------------------------
+# Blocks direct HTTP access to the secret / metadata files. PHP still
+# reads them from disk, so ota_backend.php and Parent Mode keep working:
+#   /parent_password.txt            -> 403
+#   /parent_settings.json           -> 403
+#   /firmware/firmware_index.json   -> 403
+# These stay publicly reachable (the STM32 device needs them):
+#   /status/ota.txt                 -> 200
+#   /firmware/fw_v<N>.hex           -> 200
+# The dual Apache 2.4 / 2.2 branches are wrapped in IfModule, and
+# FilesMatch + IfModule are core directives, so a missing module can
+# never turn this into a 500.
+
+<FilesMatch "^(parent_password\.txt|parent_settings\.json|firmware_index\.json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

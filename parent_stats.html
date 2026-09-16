@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parent Stats - Gaming Hub</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+        background: linear-gradient(135deg, #1e1e2f, #2b2b44);
+        color: white;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 30px 15px;
+    }
+    a.back-link {
+        align-self: flex-start;
+        color: #b3b3cc;
+        text-decoration: none;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+    a.back-link:hover { color: white; }
+    h1 { margin: 0 0 6px 0; }
+    .subtitle { color: #b3b3cc; margin-bottom: 30px; }
+    .panel {
+        background: #2f2f4a;
+        border-radius: 16px;
+        padding: 30px;
+        max-width: 460px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    input[type="password"] {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: none;
+        background: #1e1e2f;
+        color: white;
+        margin-bottom: 12px;
+    }
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 6px;
+        background: #28a745;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+        margin: 6px;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn.gray { background: #6c757d; }
+    .error-box {
+        background: #4a1f27;
+        border: 1px solid #dc3545;
+        border-radius: 10px;
+        padding: 20px;
+        color: #ffb3bd;
+        margin-top: 12px;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 16px;
+        text-align: left;
+    }
+    .stat-item {
+        background: #25253b;
+        border: 2px solid #444466;
+        border-radius: 12px;
+        padding: 12px;
+    }
+    .stat-label { color: #b3b3cc; font-size: 12px; margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: bold; }
+    .dead-list { margin-top: 16px; text-align: left; }
+    .dead-list ul { margin: 8px 0 0 0; padding-left: 20px; }
+    .dead-list li { margin-bottom: 4px; color: #ffb3bd; }
+    .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+    <a href="index.html" class="back-link">&#8592; Back to main menu</a>
+    <h1>Parent Stats</h1>
+    <p class="subtitle">Parent access only</p>
+
+    <div class="panel" id="loginPanel">
+        <p>Enter the parent password:</p>
+        <input type="password" id="passwordInput" placeholder="Password">
+        <div class="error-box hidden" id="loginError"></div>
+        <button class="btn" id="loginBtn">Enter</button>
+    </div>
+
+    <div class="panel hidden" id="statsPanel">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">Limit type</div>
+                <div class="stat-value" id="statLimitType">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Limit value</div>
+                <div class="stat-value" id="statLimitValue">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Games remaining</div>
+                <div class="stat-value" id="statGamesRemaining">-</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Days remaining</div>
+                <div class="stat-value" id="statDaysRemaining">-</div>
+            </div>
+            <div class="stat-item" style="grid-column: 1 / -1;">
+                <div class="stat-label">Date the limit was set</div>
+                <div class="stat-value" id="statSetDate" style="font-size:16px;">-</div>
+            </div>
+        </div>
+        <div class="dead-list">
+            <div class="stat-label">Games marked dead due to the limit</div>
+            <div id="deadGames">-</div>
+        </div>
+        <button class="btn gray" id="refreshBtn">Refresh</button>
+    </div>
+
+    <script src="parent_stats.js"></script>
+</body>
+</html>
